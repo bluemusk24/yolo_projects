@@ -1,0 +1,8 @@
+ultralytics
+shapely
+PyQt5
+opencv-python
+opencv-contrib-python
+supervision
+scikit-learn
+jupyter

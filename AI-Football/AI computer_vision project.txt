@@ -1,0 +1,1917 @@
+# Ultralytics (yolo11) Lectures:
+
+* https://artlist.io/ --> to get mp4 videos for computer vision project
+
+* create ultralytics/yolo11.py --> check codes 
+
+
+# PROJECT - AI Football Analysis ( Done on Google Colab because of GPU access)
+
+Description:
+In this project, you'll learn how to use machine learning, computer vision and deep learning to create a football analysis system. This project utilizes YOlO a state of the art object
+
+detector to detect the players, referees and footballs. It also utilizes trackers to track those object across frames. We also train our own object detector to enhance the output of the 
+
+state-of-the-art models.  Additionally, we will assign players to teams based on the colors of their t-shirts using Kmeans for pixel segmentation and clustering. We will also use optical 
+
+flow to measure camera movement between frames, enabling us to accurately measure a player's movement. Furthermore, we will implement perspective transformation to represent the scene's 
+
+depth and perspective, allowing us to measure a player's movement in meters rather than pixels. Finally, we will calculate a player's speed and the distance covered. This project covers 
+
+various concepts and addresses real-world problems, making it suitable for both beginners and experienced machine learning engineers.
+
+In this project, you will learn how to:
+1. Use ultralytics and YOLOv8 to detect objects in images and videos.
+2. Fine tune and train your own YOLO on your own custom dataset.
+3. Use KMeans to cluster pixles and segment players from the background to get the t-shirt color accurately. 
+4. Use optical flow to measure the camera movement. 
+5. Use CV2's (opencv) perspective transformation to represent the scene's depth and perspective. 
+6. Measure player's speed and distance covered in the image
+
+
+# Section 1:
+
+00:03 Build a football analysis system using YOLO, OpenCV, Kmeans and Python
+02:27 The first step is detecting players and the ball in the video using YOLO model.
+08:10 Implementing object detection using YOLO model for football analysis
+11:03 Object detection involves identifying sports balls and mapping their position in the image.
+16:44 Improving detection accuracy for sports ball and players
+
+* AI-Football/yolo_inference.py --> check codes for above section
+* AI-Football/yolo11_inference.ipynb --> Google Colab notebook for access to GPU
+
+
+# Section 2: 
+
+19:08 Utilizing Robo flow's football player detection image dataset for AI/ML Football Analysis system training
+24:22 Setting up and exploring football data set
+27:03 Moving the data set to specific folders is crucial for training code to work
+32:15 Training the AI model requires patience and 100 epochs
+34:42 Evaluating the AI model with YOLO for football analysis.
+
+* Ensure to create an account with Roboflow to download image dataset
+* create training directory and a training notebook inside. --> 
+* download football player detection dataset from Roboflow
+* use Google Colab (football_training.ipynb) for training custom data from Roboflow. 
+* Ensure to download best and last weights for inference. paste model in a folder models/
+* create test_weights.py --> to test the downloaded finetuned weights on your video data. 
+* Run python3 python3 AI-Football/test_weights.py
+
+
+# Section 3: Changing the Annotation (Bounding boxes on each players from rectangle to a circle and to locate the ball easily).
+
+39:47 Using OpenCV to read and save videos
+42:25 Setting up an output video format and defining video parameters
+
+* create main.py. Paste codes below and run python3 AI-Football/main.py
+def main():
+    print('hello world')
+
+if __name__ == '__main__':
+    main()
+
+* create utils/video_utils.py --> to read and save the video using library cv2. check codes
+
+* create utils/__init__.py --> to expose function inside utils outside. Paste this code below:
+from .video_utils import read_video, save_video
+
+* create folder output_video/ and edit main.py to read and save video with code below: 
+from utils import read_video, save_video
+
+
+def main():
+    # Read Video
+    video_frames = read_video('AI-Football/football.mp4')
+
+    # Save video
+    save_video(video_frames, 'output_videos/output_video.avi')
+
+if __name__ == '__main__':
+    main()
+
+import os
+from utils import read_video, save_video
+
+def main():
+    os.makedirs('output_videos', exist_ok=True)
+
+    # Read video
+    video_frames = read_video('AI-Football/football.mp4')
+
+    # Save video
+    save_video(video_frames, 'output_videos/output_video.avi')
+
+if __name__ == '__main__':
+    main()
+
+* run python3 AI-Football/main.py --> it saves the football.mp4 in an output folder 
+
+# Note: the above codes from lecture did not run because of RAM size.
+
+
+# Section 4: Smart Tracking of Object(players. ball, Refs) across different frames using Byte Tracker
+
+47:52 Building a smart tracker for assigning the same entity to a bounding box across multiple frames.
+50:49 Implementing a tracker to assign bounding boxes and IDs to track objects across frames
+56:26 Setting minimum confidence level for object detection
+59:00 Using bite tracker to override goalkeeper with player
+
+* create trackers/, __init__.py and tracker.py inside the folder
+
+* Paste these codes in tracker.py
+from ultralytics import YOLO
+import supervision as sv   # to track players
+
+
+class Tracker:
+    def __init__(self, model_path):
+        self.model = YOLO(model_path)
+        self.tracker = sv.ByteTrack()
+
+    # detect frames
+    def detect_frames(self, frames):
+        batch_size=20 
+        detections = [] 
+        for i in range(0,len(frames),batch_size):
+            detections_batch = self.model.predict(frames[i:i+batch_size],conf=0.1)   # model.predict is used here instead of model.track cos of the golakeeper.
+            detections += detections_batch
+            break
+        return detections
+    
+    # get object from detection
+    def get_object_tracks(self, frames):
+
+        detections = self.detect_frames(frames)
+
+        for frame_num, detection in enumerate(detections):
+            cls_names = detection.names
+            cls_names_inv = {v:k for k,v in cls_names.items()}   # swith the key and value inversely
+            print(cls_names)
+
+            # Convert to supervision Detection format
+            detection_supervision = sv.Detections.from_ultralytics(detection)
+
+            print(detection_supervision)
+
+            break
+
+* Paste this code in trackers/__init__.py
+from .tracker import Tracker
+
+* Update the main.py below to keep track of video frames:
+import os
+from utils import read_video, save_video
+from trackers import Tracker
+
+def main():
+    os.makedirs('output_videos', exist_ok=True)
+
+    # Read video frames
+    video_frames = read_video('AI-Football/football.mp4')
+
+    # Initialize Tracker
+    tracker = Tracker('AI-Football/models/best.pt')
+
+    # Get object tracks from frames
+    tracks = tracker.get_object_tracks(video_frames)
+
+    # Save video frames
+    save_video(video_frames, 'output_videos/output_video.avi')
+
+if __name__ == '__main__':
+    main()
+
+* run python3 AI-Football/main.py --> you should see detection (bounding box in array and classes) in supervision format. I got killed cos of RAM size
+
+
+# Section 5: Convert the Goalkeeper into a Player
+
+* Update tracker.py with these codes:
+from ultralytics import YOLO
+import supervision as sv   # to track players
+
+
+class Tracker:
+    def __init__(self, model_path):
+        self.model = YOLO(model_path)
+        self.tracker = sv.ByteTrack()
+
+    # detect frames
+    def detect_frames(self, frames):
+        batch_size=20 
+        detections = [] 
+        for i in range(0,len(frames),batch_size):
+            detections_batch = self.model.predict(frames[i:i+batch_size],conf=0.1)   # model.predict is used here instead of model.track cos of the golakeeper.
+            detections += detections_batch
+            break
+        return detections
+    
+    # get object from detection
+    def get_object_tracks(self, frames):
+
+        detections = self.detect_frames(frames)
+
+        for frame_num, detection in enumerate(detections):
+            cls_names = detection.names
+            cls_names_inv = {v:k for k,v in cls_names.items()}   # swith the key and value inversely
+            # print(cls_names)
+
+            # Convert to supervision Detection format
+            detection_supervision = sv.Detections.from_ultralytics(detection)
+
+            # Convert GoalKeeper to player object
+            for object_ind , class_id in enumerate(detection_supervision.class_id):
+                if cls_names[class_id] == "goalkeeper":
+                    detection_supervision.class_id[object_ind] = cls_names_inv["player"]
+
+            print(detection_supervision)
+
+            break
+
+* run python3 AI-Football/main.py  --> the index 1 for goalkeeper should change to 2 for players
+
+# Section 6: Add tracker Objects to Detections frames
+
+1:05:02 Analyzing objects in football frames using YOLO and OpenCV
+1:07:45 Replacing class IDs for more robust operation
+1:13:09 Implement object tracking for players, referees, and ball
+1:16:06 Implementing object tracking for football analysis
+
+* Update tracker.py with these codes:
+from ultralytics import YOLO
+import supervision as sv   # to track players
+
+
+class Tracker:
+    def __init__(self, model_path):
+        self.model = YOLO(model_path)
+        self.tracker = sv.ByteTrack()
+
+    # detect frames
+    def detect_frames(self, frames):
+        batch_size=20 
+        detections = [] 
+        for i in range(0,len(frames),batch_size):
+            detections_batch = self.model.predict(frames[i:i+batch_size],conf=0.1)   # model.predict is used here instead of model.track cos of the golakeeper.
+            detections += detections_batch
+            break
+        return detections
+    
+    # get object from detection
+    def get_object_tracks(self, frames):
+
+        detections = self.detect_frames(frames)
+
+        for frame_num, detection in enumerate(detections):
+            cls_names = detection.names
+            cls_names_inv = {v:k for k,v in cls_names.items()}   # swith the key and value inversely
+            # print(cls_names)
+
+            # Convert to supervision Detection format
+            detection_supervision = sv.Detections.from_ultralytics(detection)
+
+            # Convert GoalKeeper to player object
+            for object_ind , class_id in enumerate(detection_supervision.class_id):
+                if cls_names[class_id] == "goalkeeper":
+                    detection_supervision.class_id[object_ind] = cls_names_inv["player"]
+        
+            # Track Objects
+            detection_with_tracks = self.tracker.update_with_detections(detection_supervision)
+
+            print(detection_with_tracks)
+
+* run python3 AI-Football/main.py --> should display a track_id array numbers. The tracker_id numbers change position alongside corresponding bounding boxes when the player/goalkeeper moves around. Note(i got killed cos of RAM issues)
+
+# Section 7: Track Players in dictionary format for easy recognition
+
+* Update tracker.py with these codes:
+from ultralytics import YOLO
+import supervision as sv   # to track players
+
+
+class Tracker:
+    def __init__(self, model_path):
+        self.model = YOLO(model_path)
+        self.tracker = sv.ByteTrack()
+
+    # detect frames
+    def detect_frames(self, frames):
+        batch_size=20 
+        detections = [] 
+        for i in range(0,len(frames),batch_size):
+            detections_batch = self.model.predict(frames[i:i+batch_size],conf=0.1)   # model.predict is used here instead of model.track cos of the golakeeper.
+            detections += detections_batch
+            break
+        return detections
+    
+    # get object from detection
+    def get_object_tracks(self, frames):
+
+        detections = self.detect_frames(frames)
+
+        tracks={
+            "players":[],
+            "referees":[],
+            "ball":[]
+        }
+
+        for frame_num, detection in enumerate(detections):
+            cls_names = detection.names
+            cls_names_inv = {v:k for k,v in cls_names.items()}   # swith the key and value inversely
+            # print(cls_names)
+
+            # Convert to supervision Detection format
+            detection_supervision = sv.Detections.from_ultralytics(detection)
+
+            # Convert GoalKeeper to player object
+            for object_ind , class_id in enumerate(detection_supervision.class_id):
+                if cls_names[class_id] == "goalkeeper":
+                    detection_supervision.class_id[object_ind] = cls_names_inv["player"]
+        
+            # Track Objects
+            detection_with_tracks = self.tracker.update_with_detections(detection_supervision)
+
+            tracks["players"].append({})
+            tracks["referees"].append({})
+            tracks["ball"].append({})
+
+            
+            for frame_detection in detection_with_tracks:
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+                track_id = frame_detection[4]
+
+                if cls_id == cls_names_inv['player']:
+                    tracks["players"][frame_num][track_id] = {"bbox":bbox}
+                
+                if cls_id == cls_names_inv['referee']:
+                    tracks["referees"][frame_num][track_id] = {"bbox":bbox}
+            
+            for frame_detection in detection_supervision:
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+
+                if cls_id == cls_names_inv['ball']:
+                    tracks["ball"][frame_num][1] = {"bbox":bbox}
+
+        return tracks   # this is a list of dictionaries
+
+
+# Section 8: Save and Load with Pickle and stub not to lose data
+1:21:26 Saving and loading data using pickle in Python
+
+* Update tracker.py with these codes:
+from ultralytics import YOLO
+import supervision as sv   # to track players
+import pickle
+import os
+
+
+class Tracker:
+    def __init__(self, model_path):
+        self.model = YOLO(model_path)
+        self.tracker = sv.ByteTrack()
+
+    # detect frames
+    def detect_frames(self, frames):
+        batch_size=20 
+        detections = [] 
+        for i in range(0,len(frames),batch_size):
+            detections_batch = self.model.predict(frames[i:i+batch_size],conf=0.1)   # model.predict is used here instead of model.track cos of the golakeeper.
+            detections += detections_batch
+            #break
+        return detections
+    
+    # get object from detection
+    def get_object_tracks(self, frames, read_from_stub=False, stub_path=None):
+
+        if read_from_stub and stub_path is not None and os.path.exists(stub_path):
+            with open(stub_path,'rb') as f:
+                tracks = pickle.load(f)
+            return tracks
+
+        detections = self.detect_frames(frames)
+
+        tracks={
+            "players":[],
+            "referees":[],
+            "ball":[]
+        }
+
+        for frame_num, detection in enumerate(detections):
+            cls_names = detection.names
+            cls_names_inv = {v:k for k,v in cls_names.items()}   # swith the key and value inversely
+            # print(cls_names)
+
+            # Convert to supervision Detection format
+            detection_supervision = sv.Detections.from_ultralytics(detection)
+
+            # Convert GoalKeeper to player object
+            for object_ind , class_id in enumerate(detection_supervision.class_id):
+                if cls_names[class_id] == "goalkeeper":
+                    detection_supervision.class_id[object_ind] = cls_names_inv["player"]
+        
+            # Track Objects
+            detection_with_tracks = self.tracker.update_with_detections(detection_supervision)
+
+            tracks["players"].append({})
+            tracks["referees"].append({})
+            tracks["ball"].append({})
+
+            
+            for frame_detection in detection_with_tracks:
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+                track_id = frame_detection[4]
+
+                if cls_id == cls_names_inv['player']:
+                    tracks["players"][frame_num][track_id] = {"bbox":bbox}
+                
+                if cls_id == cls_names_inv['referee']:
+                    tracks["referees"][frame_num][track_id] = {"bbox":bbox}
+            
+            for frame_detection in detection_supervision:
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+
+                if cls_id == cls_names_inv['ball']:
+                    tracks["ball"][frame_num][1] = {"bbox":bbox}
+            
+        if stub_path is not None:
+            with open(stub_path,'wb') as f:
+                pickle.dump(tracks,f)
+
+        return tracks   # this is a list of dictionaries
+
+* Update main.py
+import os
+from utils import read_video, save_video
+from trackers import Tracker
+
+def main():
+    os.makedirs('output_videos', exist_ok=True)
+
+    # Read video frames
+    video_frames = read_video('AI-Football/football.mp4')
+
+    # Initialize Tracker
+    tracker = Tracker('AI-Football/models/best.pt')
+
+    # Get object tracks from frames
+    tracks = tracker.get_object_tracks(video_frames,
+                                       read_from_stub=True,
+                                       stub_path='stubs/track_stubs.pkl')
+
+    # Save video frames
+    save_video(video_frames, 'output_videos/output_video.avi')
+
+if __name__ == '__main__':
+    main()
+
+* create a stub/ --> to save the data
+
+* run python3 AI-Football/main.py
+
+
+# Section 9: 
+1:24:18 Drawing circles to visualize predictions
+1:30:20 Implementing functions to get center and width of bounding box in Python
+1:33:05 Drawing an ellipse using CV2 function in Python
+1:38:48 Implementing object tracking for players and referees
+1:41:35 Defining X, Y, and XY positions for football analysis
+
+* create utils/bbox_utils.py and paste this code:
+def get_center_of_bbox(bbox):
+    x1,y1,x2,y2 = bbox
+    return int((x1+x2)/2),int((y1+y2)/2)
+
+def get_bbox_width(bbox):
+    return bbox[2]-bbox[0]
+
+* update AI-Football/utils/__init__.py with these codes:
+from .video_utils import read_video, save_video
+from .bbox_utils import get_center_of_bbox, get_bbox_width
+
+* Update tracker.py with these codes:
+from ultralytics import YOLO
+import supervision as sv   # to track players
+import pickle
+import os
+import cv2
+import sys
+sys.path.append('../')
+from utils import get_center_of_bbox, get_bbox_width
+
+
+class Tracker:
+    def __init__(self, model_path):
+        self.model = YOLO(model_path)
+        self.tracker = sv.ByteTrack()
+
+    # detect frames
+    def detect_frames(self, frames):
+        batch_size=20 
+        detections = [] 
+        for i in range(0,len(frames),batch_size):
+            detections_batch = self.model.predict(frames[i:i+batch_size],conf=0.1)   # model.predict is used here instead of model.track cos of the golakeeper.
+            detections += detections_batch
+            #break
+        return detections
+    
+    # get object from detection
+    def get_object_tracks(self, frames, read_from_stub=False, stub_path=None):
+
+        if read_from_stub and stub_path is not None and os.path.exists(stub_path):
+            with open(stub_path,'rb') as f:
+                tracks = pickle.load(f)
+            return tracks
+
+        detections = self.detect_frames(frames)
+
+        tracks={
+            "players":[],
+            "referees":[],
+            "ball":[]
+        }
+
+        for frame_num, detection in enumerate(detections):
+            cls_names = detection.names
+            cls_names_inv = {v:k for k,v in cls_names.items()}   # swith the key and value inversely
+            # print(cls_names)
+
+            # Convert to supervision Detection format
+            detection_supervision = sv.Detections.from_ultralytics(detection)
+
+            # Convert GoalKeeper to player object
+            for object_ind , class_id in enumerate(detection_supervision.class_id):
+                if cls_names[class_id] == "goalkeeper":
+                    detection_supervision.class_id[object_ind] = cls_names_inv["player"]
+        
+            # Track Objects
+            detection_with_tracks = self.tracker.update_with_detections(detection_supervision)
+
+            tracks["players"].append({})
+            tracks["referees"].append({})
+            tracks["ball"].append({})
+
+            
+            for frame_detection in detection_with_tracks:
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+                track_id = frame_detection[4]
+
+                if cls_id == cls_names_inv['player']:
+                    tracks["players"][frame_num][track_id] = {"bbox":bbox}
+                
+                if cls_id == cls_names_inv['referee']:
+                    tracks["referees"][frame_num][track_id] = {"bbox":bbox}
+            
+            for frame_detection in detection_supervision:
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+
+                if cls_id == cls_names_inv['ball']:
+                    tracks["ball"][frame_num][1] = {"bbox":bbox}
+            
+        if stub_path is not None:
+            with open(stub_path,'wb') as f:
+                pickle.dump(tracks,f)
+
+        return tracks   # this is a list of dictionaries
+    
+
+    def draw_ellipse(self,frame,bbox,color,track_id=None):
+        y2 = int(bbox[3])
+        x_center, _ = get_center_of_bbox(bbox)
+        width = get_bbox_width(bbox)
+
+        cv2.ellipse(
+            frame,
+            center=(x_center,y2),
+            axes=(int(width), int(0.35*width)),
+            angle=0.0,
+            startAngle=-45,
+            endAngle=235,
+            color = color,
+            thickness=2,
+            lineType=cv2.LINE_4
+        )
+
+        return frame
+
+
+
+    # draw circle annotations 
+    def draw_annotations(self,video_frames, tracks,team_ball_control):
+        output_video_frames= []
+        for frame_num, frame in enumerate(video_frames):
+            frame = frame.copy()
+
+            player_dict = tracks["players"][frame_num]
+            ball_dict = tracks["ball"][frame_num]
+            referee_dict = tracks["referees"][frame_num]
+
+            # Draw Players
+            for track_id, player in player_dict.items():
+                color = player.get("team_color",(0,0,255))
+                frame = self.draw_ellipse(frame, player["bbox"],color, track_id)
+
+            output_video_frames.append(frame)
+
+        return output_video_frames
+
+* update main.py with these codes
+import os
+from utils import read_video, save_video
+from trackers import Tracker
+
+def main():
+    os.makedirs('output_videos', exist_ok=True)
+
+    # Read video frames
+    video_frames = read_video('AI-Football/football.mp4')
+
+    # Initialize Tracker
+    tracker = Tracker('AI-Football/models/best.pt')
+
+    # Get object tracks from frames
+    tracks = tracker.get_object_tracks(video_frames,
+                                       read_from_stub=True,
+                                       stub_path='stubs/track_stubs.pkl')
+
+    
+    # Draw output 
+    ## Draw object Tracks
+    output_video_frames = tracker.draw_annotations(video_frames, tracks)
+
+    # Save video frames
+    save_video(output_video_frames, 'output_videos/output_video.avi')
+
+if __name__ == '__main__':
+    main()
+
+* run python3 AI-Football/main.py
+
+* Update tracker.py with these codes:
+from ultralytics import YOLO
+import supervision as sv   # to track players
+import pickle
+import os
+import cv2
+import sys
+sys.path.append('../')
+from utils import get_center_of_bbox, get_bbox_width
+
+
+class Tracker:
+    def __init__(self, model_path):
+        self.model = YOLO(model_path)
+        self.tracker = sv.ByteTrack()
+
+    # detect frames
+    def detect_frames(self, frames):
+        batch_size=20 
+        detections = [] 
+        for i in range(0,len(frames),batch_size):
+            detections_batch = self.model.predict(frames[i:i+batch_size],conf=0.1)   # model.predict is used here instead of model.track cos of the golakeeper.
+            detections += detections_batch
+            #break
+        return detections
+    
+    # get object from detection
+    def get_object_tracks(self, frames, read_from_stub=False, stub_path=None):
+
+        if read_from_stub and stub_path is not None and os.path.exists(stub_path):
+            with open(stub_path,'rb') as f:
+                tracks = pickle.load(f)
+            return tracks
+
+        detections = self.detect_frames(frames)
+
+        tracks={
+            "players":[],
+            "referees":[],
+            "ball":[]
+        }
+
+        for frame_num, detection in enumerate(detections):
+            cls_names = detection.names
+            cls_names_inv = {v:k for k,v in cls_names.items()}   # swith the key and value inversely
+            # print(cls_names)
+
+            # Convert to supervision Detection format
+            detection_supervision = sv.Detections.from_ultralytics(detection)
+
+            # Convert GoalKeeper to player object
+            for object_ind , class_id in enumerate(detection_supervision.class_id):
+                if cls_names[class_id] == "goalkeeper":
+                    detection_supervision.class_id[object_ind] = cls_names_inv["player"]
+        
+            # Track Objects
+            detection_with_tracks = self.tracker.update_with_detections(detection_supervision)
+
+            tracks["players"].append({})
+            tracks["referees"].append({})
+            tracks["ball"].append({})
+
+            
+            for frame_detection in detection_with_tracks:
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+                track_id = frame_detection[4]
+
+                if cls_id == cls_names_inv['player']:
+                    tracks["players"][frame_num][track_id] = {"bbox":bbox}
+                
+                if cls_id == cls_names_inv['referee']:
+                    tracks["referees"][frame_num][track_id] = {"bbox":bbox}
+            
+            for frame_detection in detection_supervision:
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+
+                if cls_id == cls_names_inv['ball']:
+                    tracks["ball"][frame_num][1] = {"bbox":bbox}
+            
+        if stub_path is not None:
+            with open(stub_path,'wb') as f:
+                pickle.dump(tracks,f)
+
+        return tracks   # this is a list of dictionaries
+    
+
+    def draw_ellipse(self,frame,bbox,color,track_id=None):
+        y2 = int(bbox[3])
+        x_center, _ = get_center_of_bbox(bbox)
+        width = get_bbox_width(bbox)
+
+        cv2.ellipse(
+            frame,
+            center=(x_center,y2),
+            axes=(int(width), int(0.35*width)),
+            angle=0.0,
+            startAngle=-45,
+            endAngle=235,
+            color = color,
+            thickness=2,
+            lineType=cv2.LINE_4
+        )
+
+        return frame
+
+
+
+    # draw circle annotations 
+    def draw_annotations(self,video_frames, tracks,team_ball_control):
+        output_video_frames= []
+        for frame_num, frame in enumerate(video_frames):
+            frame = frame.copy()
+
+            player_dict = tracks["players"][frame_num]
+            ball_dict = tracks["ball"][frame_num]
+            referee_dict = tracks["referees"][frame_num]
+
+            # Draw Players
+            for track_id, player in player_dict.items():
+                color = player.get("team_color",(0,0,255))
+                frame = self.draw_ellipse(frame, player["bbox"],color, track_id)
+
+            # Draw Referee
+            for _, referee in referee_dict.items():
+                frame = self.draw_ellipse(frame, referee["bbox"],(0,255,255))
+
+            output_video_frames.append(frame)
+
+        return output_video_frames
+ 
+* run python3 AI-Football/main.py
+
+
+# Section 10:
+
+* Update track.py
+from ultralytics import YOLO
+import supervision as sv   # to track players
+import pickle
+import os
+import cv2
+import sys
+sys.path.append('../')
+from utils import get_center_of_bbox, get_bbox_width
+
+
+class Tracker:
+    def __init__(self, model_path):
+        self.model = YOLO(model_path)
+        self.tracker = sv.ByteTrack()
+
+    # detect frames
+    def detect_frames(self, frames):
+        batch_size=20 
+        detections = [] 
+        for i in range(0,len(frames),batch_size):
+            detections_batch = self.model.predict(frames[i:i+batch_size],conf=0.1)   # model.predict is used here instead of model.track cos of the golakeeper.
+            detections += detections_batch
+            #break
+        return detections
+    
+    # get object from detection
+    def get_object_tracks(self, frames, read_from_stub=False, stub_path=None):
+
+        if read_from_stub and stub_path is not None and os.path.exists(stub_path):
+            with open(stub_path,'rb') as f:
+                tracks = pickle.load(f)
+            return tracks
+
+        detections = self.detect_frames(frames)
+
+        tracks={
+            "players":[],
+            "referees":[],
+            "ball":[]
+        }
+
+        for frame_num, detection in enumerate(detections):
+            cls_names = detection.names
+            cls_names_inv = {v:k for k,v in cls_names.items()}   # swith the key and value inversely
+            # print(cls_names)
+
+            # Convert to supervision Detection format
+            detection_supervision = sv.Detections.from_ultralytics(detection)
+
+            # Convert GoalKeeper to player object
+            for object_ind , class_id in enumerate(detection_supervision.class_id):
+                if cls_names[class_id] == "goalkeeper":
+                    detection_supervision.class_id[object_ind] = cls_names_inv["player"]
+        
+            # Track Objects
+            detection_with_tracks = self.tracker.update_with_detections(detection_supervision)
+
+            tracks["players"].append({})
+            tracks["referees"].append({})
+            tracks["ball"].append({})
+
+            
+            for frame_detection in detection_with_tracks:
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+                track_id = frame_detection[4]
+
+                if cls_id == cls_names_inv['player']:
+                    tracks["players"][frame_num][track_id] = {"bbox":bbox}
+                
+                if cls_id == cls_names_inv['referee']:
+                    tracks["referees"][frame_num][track_id] = {"bbox":bbox}
+            
+            for frame_detection in detection_supervision:
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+
+                if cls_id == cls_names_inv['ball']:
+                    tracks["ball"][frame_num][1] = {"bbox":bbox}
+            
+        if stub_path is not None:
+            with open(stub_path,'wb') as f:
+                pickle.dump(tracks,f)
+
+        return tracks   # this is a list of dictionaries
+    
+
+    def draw_ellipse(self,frame,bbox,color,track_id=None):
+        y2 = int(bbox[3])
+        x_center, _ = get_center_of_bbox(bbox)
+        width = get_bbox_width(bbox)
+
+        cv2.ellipse(
+            frame,
+            center=(x_center,y2),
+            axes=(int(width), int(0.35*width)),
+            angle=0.0,
+            startAngle=-45,
+            endAngle=235,
+            color = color,
+            thickness=2,
+            lineType=cv2.LINE_4
+        )
+
+        rectangle_width = 40
+        rectangle_height=20
+        x1_rect = x_center - rectangle_width//2
+        x2_rect = x_center + rectangle_width//2
+        y1_rect = (y2- rectangle_height//2) +15
+        y2_rect = (y2+ rectangle_height//2) +15
+            
+        if track_id is not None:
+            cv2.rectangle(frame,
+                          (int(x1_rect),int(y1_rect) ),
+                          (int(x2_rect),int(y2_rect)),
+                          color,
+                          cv2.FILLED)
+            
+            x1_text = x1_rect+12
+            if track_id > 99:
+                x1_text -=10
+            
+            cv2.putText(
+                frame,
+                f"{track_id}",
+                (int(x1_text),int(y1_rect+15)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (0,0,0),
+                2
+            )
+
+        return frame
+
+    # draw circle annotations 
+    def draw_annotations(self,video_frames, tracks,team_ball_control):
+        output_video_frames= []
+        for frame_num, frame in enumerate(video_frames):
+            frame = frame.copy()
+
+            player_dict = tracks["players"][frame_num]
+            ball_dict = tracks["ball"][frame_num]
+            referee_dict = tracks["referees"][frame_num]
+
+            # Draw Players
+            for track_id, player in player_dict.items():
+                color = player.get("team_color",(0,0,255))
+                frame = self.draw_ellipse(frame, player["bbox"],color, track_id)
+
+            # Draw Referee
+            for _, referee in referee_dict.items():
+                frame = self.draw_ellipse(frame, referee["bbox"],(0,255,255))
+
+            output_video_frames.append(frame)
+
+        return output_video_frames
+
+* run python3 AI-Football/main.py
+
+# Section 11
+1:46:49 Illustrating how to create a triangle pointer for tracking
+1:49:29 Creating a triangle on top of the ball using OpenCV and Python
+
+* Update tracker.py
+from ultralytics import YOLO
+import supervision as sv   # to track players
+import pickle
+import os
+import numpy as np
+import cv2
+import sys
+sys.path.append('../')
+from utils import get_center_of_bbox, get_bbox_width
+
+
+class Tracker:
+    def __init__(self, model_path):
+        self.model = YOLO(model_path)
+        self.tracker = sv.ByteTrack()
+
+    # detect frames
+    def detect_frames(self, frames):
+        batch_size=20 
+        detections = [] 
+        for i in range(0,len(frames),batch_size):
+            detections_batch = self.model.predict(frames[i:i+batch_size],conf=0.1)   # model.predict is used here instead of model.track cos of the golakeeper.
+            detections += detections_batch
+            #break
+        return detections
+    
+    # get object from detection
+    def get_object_tracks(self, frames, read_from_stub=False, stub_path=None):
+
+        if read_from_stub and stub_path is not None and os.path.exists(stub_path):
+            with open(stub_path,'rb') as f:
+                tracks = pickle.load(f)
+            return tracks
+
+        detections = self.detect_frames(frames)
+
+        tracks={
+            "players":[],
+            "referees":[],
+            "ball":[]
+        }
+
+        for frame_num, detection in enumerate(detections):
+            cls_names = detection.names
+            cls_names_inv = {v:k for k,v in cls_names.items()}   # swith the key and value inversely
+            # print(cls_names)
+
+            # Convert to supervision Detection format
+            detection_supervision = sv.Detections.from_ultralytics(detection)
+
+            # Convert GoalKeeper to player object
+            for object_ind , class_id in enumerate(detection_supervision.class_id):
+                if cls_names[class_id] == "goalkeeper":
+                    detection_supervision.class_id[object_ind] = cls_names_inv["player"]
+        
+            # Track Objects
+            detection_with_tracks = self.tracker.update_with_detections(detection_supervision)
+
+            tracks["players"].append({})
+            tracks["referees"].append({})
+            tracks["ball"].append({})
+
+            
+            for frame_detection in detection_with_tracks:
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+                track_id = frame_detection[4]
+
+                if cls_id == cls_names_inv['player']:
+                    tracks["players"][frame_num][track_id] = {"bbox":bbox}
+                
+                if cls_id == cls_names_inv['referee']:
+                    tracks["referees"][frame_num][track_id] = {"bbox":bbox}
+            
+            for frame_detection in detection_supervision:
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+
+                if cls_id == cls_names_inv['ball']:
+                    tracks["ball"][frame_num][1] = {"bbox":bbox}
+            
+        if stub_path is not None:
+            with open(stub_path,'wb') as f:
+                pickle.dump(tracks,f)
+
+        return tracks   # this is a list of dictionaries
+    
+
+    def draw_ellipse(self,frame,bbox,color,track_id=None):
+        y2 = int(bbox[3])
+        x_center, _ = get_center_of_bbox(bbox)
+        width = get_bbox_width(bbox)
+
+        cv2.ellipse(
+            frame,
+            center=(x_center,y2),
+            axes=(int(width), int(0.35*width)),
+            angle=0.0,
+            startAngle=-45,
+            endAngle=235,
+            color = color,
+            thickness=2,
+            lineType=cv2.LINE_4
+        )
+
+        rectangle_width = 40
+        rectangle_height=20
+        x1_rect = x_center - rectangle_width//2
+        x2_rect = x_center + rectangle_width//2
+        y1_rect = (y2- rectangle_height//2) +15
+        y2_rect = (y2+ rectangle_height//2) +15
+            
+        if track_id is not None:
+            cv2.rectangle(frame,
+                          (int(x1_rect),int(y1_rect) ),
+                          (int(x2_rect),int(y2_rect)),
+                          color,
+                          cv2.FILLED)
+            
+            x1_text = x1_rect+12
+            if track_id > 99:
+                x1_text -=10
+            
+            cv2.putText(
+                frame,
+                f"{track_id}",
+                (int(x1_text),int(y1_rect+15)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (0,0,0),
+                2
+            )
+
+        return frame
+
+    # draw traingle on the ball
+    def draw_traingle(self,frame,bbox,color):
+        y= int(bbox[1])
+        x,_ = get_center_of_bbox(bbox)
+
+        triangle_points = np.array([
+            [x,y],
+            [x-10,y-20],
+            [x+10,y-20],
+        ])
+        cv2.drawContours(frame, [triangle_points],0,color, cv2.FILLED)
+        cv2.drawContours(frame, [triangle_points],0,(0,0,0), 2)
+
+        return frame
+
+    # draw circle annotations 
+    def draw_annotations(self,video_frames, tracks,team_ball_control):
+        output_video_frames= []
+        for frame_num, frame in enumerate(video_frames):
+            frame = frame.copy()
+
+            player_dict = tracks["players"][frame_num]
+            ball_dict = tracks["ball"][frame_num]
+            referee_dict = tracks["referees"][frame_num]
+
+            # Draw Players
+            for track_id, player in player_dict.items():
+                color = player.get("team_color",(0,0,255))
+                frame = self.draw_ellipse(frame, player["bbox"],color, track_id)
+
+            # Draw Referee
+            for _, referee in referee_dict.items():
+                frame = self.draw_ellipse(frame, referee["bbox"],(0,255,255))
+
+            # Draw ball 
+            for track_id, ball in ball_dict.items():
+                frame = self.draw_traingle(frame, ball["bbox"],(0,255,0))
+
+            output_video_frames.append(frame)
+
+        return output_video_frames
+
+* run python3 AI-Football/main.py
+
+# Section 12:
+1:55:31 Implementing image cropping and saving in Python using OpenCV
+1:58:35 Implementing bounding boxes and image cropping for football analysis with AI/ML
+2:04:36 Implementing K-means clustering for image segmentation
+2:07:32 Identifying player and non-player clusters using corner clustering
+2:13:08 Creating a function to get player color and perform clustering.
+2:16:04 Implementing K-means clustering for player color extraction
+2:22:00 Identifying player team based on color and K-means clustering
+2:24:34 Assigning players to teams and colors in AI football analysis system
+2:30:30 Using team colors for player tracking in football analysis
+
+* update main.py with these codes
+import os
+import cv2
+from utils import read_video, save_video
+from trackers import Tracker
+
+def main():
+    os.makedirs('output_videos', exist_ok=True)
+
+    # Read video frames
+    video_frames = read_video('AI-Football/football.mp4')
+
+    # Initialize Tracker
+    tracker = Tracker('AI-Football/models/best.pt')
+
+    # Get object tracks from frames
+    tracks = tracker.get_object_tracks(video_frames,
+                                       read_from_stub=True,
+                                       stub_path='stubs/track_stubs.pkl')
+
+    # save cropped image of a player
+    for track_id, player in tracks['players'][0].items:
+        bbox = player['bbox']
+        frame = video_frames[0]
+
+        # crop bbox from frame
+        cropped_image = frame[int(bbox[1]):int(bbox[3]), int(bbox[0]):int(bbox[2])]
+
+        # save the cropped image
+        cv2.imwrite(f'output_videos/cropped_image.jpg', cropped_image)
+        break
+
+    
+    # Draw output 
+    ## Draw object Tracks
+    output_video_frames = tracker.draw_annotations(video_frames, tracks)
+
+    # Save video frames
+    save_video(output_video_frames, 'output_videos/output_video.avi')
+
+if __name__ == '__main__':
+    main()
+
+* run python3 AI-Football/main.py --> you should get a cropped image in the ouput_videos folder
+
+* create this folder and notebook in this directory: AI-Football/development_and_analysis/color.ipynb  -> check codes
+
+* create team_assigner/team_assigner.py and team_assigner/__init__.py --> check codes in both scripts
+
+* update main.py with these codes
+import os
+import cv2
+from utils import read_video, save_video
+from trackers import Tracker
+from team_assigner import TeamAssigner
+
+def main():
+    os.makedirs('output_videos', exist_ok=True)
+
+    # Read video frames
+    video_frames = read_video('AI-Football/football.mp4')
+
+    # Initialize Tracker
+    tracker = Tracker('AI-Football/models/best.pt')
+
+    # Get object tracks from frames
+    tracks = tracker.get_object_tracks(video_frames,
+                                       read_from_stub=True,
+                                       stub_path='stubs/track_stubs.pkl')
+    
+    # Assign Player Teams
+    team_assigner = TeamAssigner()
+    team_assigner.assign_team_color(video_frames[0], 
+                                    tracks['players'][0])
+    
+    for frame_num, player_track in enumerate(tracks['players']):
+        for player_id, track in player_track.items():
+            team = team_assigner.get_player_team(video_frames[frame_num],   
+                                                 track['bbox'],
+                                                 player_id)
+            tracks['players'][frame_num][player_id]['team'] = team 
+            tracks['players'][frame_num][player_id]['team_color'] = team_assigner.team_colors[team]
+
+
+    # Draw output 
+    ## Draw object Tracks
+    output_video_frames = tracker.draw_annotations(video_frames, tracks)
+
+    # Save video frames
+    save_video(output_video_frames, 'output_videos/output_video.avi')
+
+if __name__ == '__main__':
+    main()
+
+* run python3 AI-Football/main.py
+
+
+# Section 13:
+2:33:10 Using pandas to interpolate missing ball positions for more complete detections.
+2:38:46 Implementing ball tracking with YOLO and OpenCV
+
+* Update tracker.py
+from ultralytics import YOLO
+import supervision as sv   # to track players
+import pickle
+import os
+import numpy as np
+import pandas as pd
+import cv2
+import sys
+sys.path.append('../')
+from utils import get_center_of_bbox, get_bbox_width
+
+
+class Tracker:
+    def __init__(self, model_path):
+        self.model = YOLO(model_path)
+        self.tracker = sv.ByteTrack()
+
+
+    def interpolate_ball_positions(self,ball_positions):
+        ball_positions = [x.get(1,{}).get('bbox',[]) for x in ball_positions]
+        df_ball_positions = pd.DataFrame(ball_positions,columns=['x1','y1','x2','y2'])
+
+        # Interpolate missing values
+        df_ball_positions = df_ball_positions.interpolate()
+        df_ball_positions = df_ball_positions.bfill()
+
+        ball_positions = [{1: {"bbox":x}} for x in df_ball_positions.to_numpy().tolist()]
+
+        return ball_positions
+
+    # detect frames
+    def detect_frames(self, frames):
+        batch_size=20 
+        detections = [] 
+        for i in range(0,len(frames),batch_size):
+            detections_batch = self.model.predict(frames[i:i+batch_size],conf=0.1)   # model.predict is used here instead of model.track cos of the golakeeper.
+            detections += detections_batch
+            #break
+        return detections
+    
+    # get object from detection
+    def get_object_tracks(self, frames, read_from_stub=False, stub_path=None):
+
+        if read_from_stub and stub_path is not None and os.path.exists(stub_path):
+            with open(stub_path,'rb') as f:
+                tracks = pickle.load(f)
+            return tracks
+
+        detections = self.detect_frames(frames)
+
+        tracks={
+            "players":[],
+            "referees":[],
+            "ball":[]
+        }
+
+        for frame_num, detection in enumerate(detections):
+            cls_names = detection.names
+            cls_names_inv = {v:k for k,v in cls_names.items()}   # swith the key and value inversely
+            # print(cls_names)
+
+            # Convert to supervision Detection format
+            detection_supervision = sv.Detections.from_ultralytics(detection)
+
+            # Convert GoalKeeper to player object
+            for object_ind , class_id in enumerate(detection_supervision.class_id):
+                if cls_names[class_id] == "goalkeeper":
+                    detection_supervision.class_id[object_ind] = cls_names_inv["player"]
+        
+            # Track Objects
+            detection_with_tracks = self.tracker.update_with_detections(detection_supervision)
+
+            tracks["players"].append({})
+            tracks["referees"].append({})
+            tracks["ball"].append({})
+
+            
+            for frame_detection in detection_with_tracks:
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+                track_id = frame_detection[4]
+
+                if cls_id == cls_names_inv['player']:
+                    tracks["players"][frame_num][track_id] = {"bbox":bbox}
+                
+                if cls_id == cls_names_inv['referee']:
+                    tracks["referees"][frame_num][track_id] = {"bbox":bbox}
+            
+            for frame_detection in detection_supervision:
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+
+                if cls_id == cls_names_inv['ball']:
+                    tracks["ball"][frame_num][1] = {"bbox":bbox}
+            
+        if stub_path is not None:
+            with open(stub_path,'wb') as f:
+                pickle.dump(tracks,f)
+
+        return tracks   # this is a list of dictionaries
+    
+
+    def draw_ellipse(self,frame,bbox,color,track_id=None):
+        y2 = int(bbox[3])
+        x_center, _ = get_center_of_bbox(bbox)
+        width = get_bbox_width(bbox)
+
+        cv2.ellipse(
+            frame,
+            center=(x_center,y2),
+            axes=(int(width), int(0.35*width)),
+            angle=0.0,
+            startAngle=-45,
+            endAngle=235,
+            color = color,
+            thickness=2,
+            lineType=cv2.LINE_4
+        )
+
+        rectangle_width = 40
+        rectangle_height=20
+        x1_rect = x_center - rectangle_width//2
+        x2_rect = x_center + rectangle_width//2
+        y1_rect = (y2- rectangle_height//2) +15
+        y2_rect = (y2+ rectangle_height//2) +15
+            
+        if track_id is not None:
+            cv2.rectangle(frame,
+                          (int(x1_rect),int(y1_rect) ),
+                          (int(x2_rect),int(y2_rect)),
+                          color,
+                          cv2.FILLED)
+            
+            x1_text = x1_rect+12
+            if track_id > 99:
+                x1_text -=10
+            
+            cv2.putText(
+                frame,
+                f"{track_id}",
+                (int(x1_text),int(y1_rect+15)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (0,0,0),
+                2
+            )
+
+        return frame
+
+    # draw traingle on the ball
+    def draw_traingle(self,frame,bbox,color):
+        y= int(bbox[1])
+        x,_ = get_center_of_bbox(bbox)
+
+        triangle_points = np.array([
+            [x,y],
+            [x-10,y-20],
+            [x+10,y-20],
+        ])
+        cv2.drawContours(frame, [triangle_points],0,color, cv2.FILLED)
+        cv2.drawContours(frame, [triangle_points],0,(0,0,0), 2)
+
+        return frame
+
+    # draw circle annotations 
+    def draw_annotations(self,video_frames, tracks,team_ball_control):
+        output_video_frames= []
+        for frame_num, frame in enumerate(video_frames):
+            frame = frame.copy()
+
+            player_dict = tracks["players"][frame_num]
+            ball_dict = tracks["ball"][frame_num]
+            referee_dict = tracks["referees"][frame_num]
+
+            # Draw Players
+            for track_id, player in player_dict.items():
+                color = player.get("team_color",(0,0,255))
+                frame = self.draw_ellipse(frame, player["bbox"],color, track_id)
+
+            # Draw Referee
+            for _, referee in referee_dict.items():
+                frame = self.draw_ellipse(frame, referee["bbox"],(0,255,255))
+
+            # Draw ball 
+            for track_id, ball in ball_dict.items():
+                frame = self.draw_traingle(frame, ball["bbox"],(0,255,0))
+
+            output_video_frames.append(frame)
+
+        return output_video_frames
+
+
+* update main.py with these codes
+import os
+import cv2
+from utils import read_video, save_video
+from trackers import Tracker
+from team_assigner import TeamAssigner
+
+def main():
+    os.makedirs('output_videos', exist_ok=True)
+
+    # Read video frames
+    video_frames = read_video('AI-Football/football.mp4')
+
+    # Initialize Tracker
+    tracker = Tracker('AI-Football/models/best.pt')
+
+    # Get object tracks from frames
+    tracks = tracker.get_object_tracks(video_frames,
+                                       read_from_stub=True,
+                                       stub_path='stubs/track_stubs.pkl')
+    
+    
+    # Interpolate Ball Positions
+    tracks["ball"] = tracker.interpolate_ball_positions(tracks["ball"])
+    
+    # Assign Player Teams
+    team_assigner = TeamAssigner()
+    team_assigner.assign_team_color(video_frames[0], 
+                                    tracks['players'][0])
+    
+    for frame_num, player_track in enumerate(tracks['players']):
+        for player_id, track in player_track.items():
+            team = team_assigner.get_player_team(video_frames[frame_num],   
+                                                 track['bbox'],
+                                                 player_id)
+            tracks['players'][frame_num][player_id]['team'] = team 
+            tracks['players'][frame_num][player_id]['team_color'] = team_assigner.team_colors[team]
+
+
+    # Draw output 
+    ## Draw object Tracks
+    output_video_frames = tracker.draw_annotations(video_frames, tracks)
+
+    # Save video frames
+    save_video(output_video_frames, 'output_videos/output_video.avi')
+
+if __name__ == '__main__':
+    main()
+
+* run python3 AI-Football/main.py
+
+
+# Section 14: Creating Module for the Player with the ball at the moment by assigning a red triangle on the player
+2:41:27 Creating a module for player-ball assignment logic
+2:46:47 Assigning players to balls based on minimum distance calculation
+2:50:00 Assigning player and ball control analysis
+2:55:29 Drawing semi-transparent rectangles for football analysis system
+2:58:29 Calculate percentage of time each team has the ball
+
+* create folder player_ball_assigner/, __init__.py and player_ball_assigner.py in the folder  --> check codes
+
+* update AI-Football/utils/bbox_utils.py with the code below
+def get_center_of_bbox(bbox):
+    x1,y1,x2,y2 = bbox
+    return int((x1+x2)/2),int((y1+y2)/2)
+
+def get_bbox_width(bbox):
+    return bbox[2]-bbox[0]
+
+def measure_distance(p1,p2):
+    return ((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)**0.5
+
+* update AI-Football/utils/__init__.py with he code below:
+from .video_utils import read_video, save_video
+from .bbox_utils import get_center_of_bbox, get_bbox_width, measure_distance
+
+* update main.py with these codes
+import os
+import cv2
+import numpy as np
+from utils import read_video, save_video
+from trackers import Tracker
+from team_assigner import TeamAssigner
+from player_ball_assigner import PlayerBallAssigner
+
+def main():
+    os.makedirs('output_videos', exist_ok=True)
+
+    # Read video frames
+    video_frames = read_video('AI-Football/football.mp4')
+
+    # Initialize Tracker
+    tracker = Tracker('AI-Football/models/best.pt')
+
+    # Get object tracks from frames
+    tracks = tracker.get_object_tracks(video_frames,
+                                       read_from_stub=True,
+                                       stub_path='stubs/track_stubs.pkl')
+    
+    
+    # Interpolate Ball Positions
+    tracks["ball"] = tracker.interpolate_ball_positions(tracks["ball"])
+    
+    # Assign Player Teams
+    team_assigner = TeamAssigner()
+    team_assigner.assign_team_color(video_frames[0], 
+                                    tracks['players'][0])
+    
+    for frame_num, player_track in enumerate(tracks['players']):
+        for player_id, track in player_track.items():
+            team = team_assigner.get_player_team(video_frames[frame_num],   
+                                                 track['bbox'],
+                                                 player_id)
+            tracks['players'][frame_num][player_id]['team'] = team 
+            tracks['players'][frame_num][player_id]['team_color'] = team_assigner.team_colors[team]
+
+    
+    # Assign Ball Aquisition
+    player_assigner =PlayerBallAssigner()
+    team_ball_control= []
+    for frame_num, player_track in enumerate(tracks['players']):
+        ball_bbox = tracks['ball'][frame_num][1]['bbox']
+        assigned_player = player_assigner.assign_ball_to_player(player_track, ball_bbox)
+
+        if assigned_player != -1:
+            tracks['players'][frame_num][assigned_player]['has_ball'] = True
+            team_ball_control.append(tracks['players'][frame_num][assigned_player]['team'])
+        else:
+            team_ball_control.append(team_ball_control[-1])
+    team_ball_control= np.array(team_ball_control)
+
+    # Draw output 
+    ## Draw object Tracks
+    output_video_frames = tracker.draw_annotations(video_frames, tracks)
+
+    # Save video frames
+    save_video(output_video_frames, 'output_videos/output_video.avi')
+
+if __name__ == '__main__':
+    main()
+
+* Update tracker.py
+from ultralytics import YOLO
+import supervision as sv   # to track players
+import pickle
+import os
+import numpy as np
+import pandas as pd
+import cv2
+import sys
+sys.path.append('../')
+from utils import get_center_of_bbox, get_bbox_width
+
+
+class Tracker:
+    def __init__(self, model_path):
+        self.model = YOLO(model_path)
+        self.tracker = sv.ByteTrack()
+
+
+    def interpolate_ball_positions(self,ball_positions):
+        ball_positions = [x.get(1,{}).get('bbox',[]) for x in ball_positions]
+        df_ball_positions = pd.DataFrame(ball_positions,columns=['x1','y1','x2','y2'])
+
+        # Interpolate missing values
+        df_ball_positions = df_ball_positions.interpolate()
+        df_ball_positions = df_ball_positions.bfill()
+
+        ball_positions = [{1: {"bbox":x}} for x in df_ball_positions.to_numpy().tolist()]
+
+        return ball_positions
+
+    # detect frames
+    def detect_frames(self, frames):
+        batch_size=20 
+        detections = [] 
+        for i in range(0,len(frames),batch_size):
+            detections_batch = self.model.predict(frames[i:i+batch_size],conf=0.1)   # model.predict is used here instead of model.track cos of the golakeeper.
+            detections += detections_batch
+            #break
+        return detections
+    
+    # get object from detection
+    def get_object_tracks(self, frames, read_from_stub=False, stub_path=None):
+
+        if read_from_stub and stub_path is not None and os.path.exists(stub_path):
+            with open(stub_path,'rb') as f:
+                tracks = pickle.load(f)
+            return tracks
+
+        detections = self.detect_frames(frames)
+
+        tracks={
+            "players":[],
+            "referees":[],
+            "ball":[]
+        }
+
+        for frame_num, detection in enumerate(detections):
+            cls_names = detection.names
+            cls_names_inv = {v:k for k,v in cls_names.items()}   # swith the key and value inversely
+            # print(cls_names)
+
+            # Convert to supervision Detection format
+            detection_supervision = sv.Detections.from_ultralytics(detection)
+
+            # Convert GoalKeeper to player object
+            for object_ind , class_id in enumerate(detection_supervision.class_id):
+                if cls_names[class_id] == "goalkeeper":
+                    detection_supervision.class_id[object_ind] = cls_names_inv["player"]
+        
+            # Track Objects
+            detection_with_tracks = self.tracker.update_with_detections(detection_supervision)
+
+            tracks["players"].append({})
+            tracks["referees"].append({})
+            tracks["ball"].append({})
+
+            
+            for frame_detection in detection_with_tracks:
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+                track_id = frame_detection[4]
+
+                if cls_id == cls_names_inv['player']:
+                    tracks["players"][frame_num][track_id] = {"bbox":bbox}
+                
+                if cls_id == cls_names_inv['referee']:
+                    tracks["referees"][frame_num][track_id] = {"bbox":bbox}
+            
+            for frame_detection in detection_supervision:
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+
+                if cls_id == cls_names_inv['ball']:
+                    tracks["ball"][frame_num][1] = {"bbox":bbox}
+            
+        if stub_path is not None:
+            with open(stub_path,'wb') as f:
+                pickle.dump(tracks,f)
+
+        return tracks   # this is a list of dictionaries
+    
+
+    def draw_ellipse(self,frame,bbox,color,track_id=None):
+        y2 = int(bbox[3])
+        x_center, _ = get_center_of_bbox(bbox)
+        width = get_bbox_width(bbox)
+
+        cv2.ellipse(
+            frame,
+            center=(x_center,y2),
+            axes=(int(width), int(0.35*width)),
+            angle=0.0,
+            startAngle=-45,
+            endAngle=235,
+            color = color,
+            thickness=2,
+            lineType=cv2.LINE_4
+        )
+
+        rectangle_width = 40
+        rectangle_height=20
+        x1_rect = x_center - rectangle_width//2
+        x2_rect = x_center + rectangle_width//2
+        y1_rect = (y2- rectangle_height//2) +15
+        y2_rect = (y2+ rectangle_height//2) +15
+            
+        if track_id is not None:
+            cv2.rectangle(frame,
+                          (int(x1_rect),int(y1_rect) ),
+                          (int(x2_rect),int(y2_rect)),
+                          color,
+                          cv2.FILLED)
+            
+            x1_text = x1_rect+12
+            if track_id > 99:
+                x1_text -=10
+            
+            cv2.putText(
+                frame,
+                f"{track_id}",
+                (int(x1_text),int(y1_rect+15)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (0,0,0),
+                2
+            )
+
+        return frame
+
+    # draw traingle on the ball
+    def draw_traingle(self,frame,bbox,color):
+        y= int(bbox[1])
+        x,_ = get_center_of_bbox(bbox)
+
+        triangle_points = np.array([
+            [x,y],
+            [x-10,y-20],
+            [x+10,y-20],
+        ])
+        cv2.drawContours(frame, [triangle_points],0,color, cv2.FILLED)
+        cv2.drawContours(frame, [triangle_points],0,(0,0,0), 2)
+
+        return frame
+    
+    def draw_team_ball_control(self,frame,frame_num,team_ball_control):
+        # Draw a semi-transparent rectaggle 
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (1350, 850), (1900,970), (255,255,255), -1 )
+        alpha = 0.4
+        cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+
+        team_ball_control_till_frame = team_ball_control[:frame_num+1]
+        # Get the number of time each team had ball control
+        team_1_num_frames = team_ball_control_till_frame[team_ball_control_till_frame==1].shape[0]
+        team_2_num_frames = team_ball_control_till_frame[team_ball_control_till_frame==2].shape[0]
+        team_1 = team_1_num_frames/(team_1_num_frames+team_2_num_frames)
+        team_2 = team_2_num_frames/(team_1_num_frames+team_2_num_frames)
+
+        cv2.putText(frame, f"Team 1 Ball Control: {team_1*100:.2f}%",(1400,900), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,0), 3)
+        cv2.putText(frame, f"Team 2 Ball Control: {team_2*100:.2f}%",(1400,950), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,0), 3)
+
+        return frame
+
+    # draw circle annotations 
+    def draw_annotations(self,video_frames, tracks,team_ball_control):
+        output_video_frames= []
+        for frame_num, frame in enumerate(video_frames):
+            frame = frame.copy()
+
+            player_dict = tracks["players"][frame_num]
+            ball_dict = tracks["ball"][frame_num]
+            referee_dict = tracks["referees"][frame_num]
+
+            # Draw Players
+            for track_id, player in player_dict.items():
+                color = player.get("team_color",(0,0,255))
+                frame = self.draw_ellipse(frame, player["bbox"],color, track_id)
+
+                if player.get('has_ball',False):
+                    frame = self.draw_traingle(frame, player["bbox"],(0,0,255))
+
+            # Draw Referee
+            for _, referee in referee_dict.items():
+                frame = self.draw_ellipse(frame, referee["bbox"],(0,255,255))
+
+            # Draw ball 
+            for track_id, ball in ball_dict.items():
+                frame = self.draw_traingle(frame, ball["bbox"],(0,255,0))
+
+            # Draw Team Ball Control
+            frame = self.draw_team_ball_control(frame, frame_num, team_ball_control)
+
+            output_video_frames.append(frame)
+
+        return output_video_frames
+
+* run python3 AI-Football/main.py
+
+
+# Section 15: Camera Motion when the bounding box moves
+3:04:46 Adjust camera motion to measure player speed accurately
+3:07:24 Detecting corner features and analyzing camera movement
+3:12:54 Setting up parameters for football analysis system initialization
+3:15:38 Setting up feature extraction parameters for the AI/ML system.
+3:20:58 Calculating distance between new and old feature points
+3:23:54 Implementing camera movement analysis in AI/ML Football Analysis system
+3:30:02 Implementing camera movement analysis in OpenCV
+3:33:00 Building robust player positions in the football analysis system
+3:38:33 Adjusting positions according to camera movement
+
+* create folder camera_movement_estimator/, __init__.py, camera_movement_estimator.py inside folder --> check codes
+
+* update main.py with these codes
+import os
+import cv2
+import numpy as np
+from utils import read_video, save_video
+from trackers import Tracker
+from team_assigner import TeamAssigner
+from player_ball_assigner import PlayerBallAssigner
+from camera_movement_estimator import CameraMovementEstimator
+
+def main():
+    os.makedirs('output_videos', exist_ok=True)
+
+    # Read video frames
+    video_frames = read_video('AI-Football/football.mp4')
+
+    # Initialize Tracker
+    tracker = Tracker('AI-Football/models/best.pt')
+
+    # Get object tracks from frames
+    tracks = tracker.get_object_tracks(video_frames,
+                                       read_from_stub=True,
+                                       stub_path='stubs/track_stubs.pkl')
+    
+     # camera movement estimator
+    camera_movement_estimator = CameraMovementEstimator(video_frames[0])
+    camera_movement_per_frame = camera_movement_estimator.get_camera_movement(video_frames,
+                                                                                read_from_stub=True,
+                                                                                stub_path='stubs/camera_movement_stub.pkl')
+    camera_movement_estimator.add_adjust_positions_to_tracks(tracks,camera_movement_per_frame)
+    
+    
+    # Interpolate Ball Positions
+    tracks["ball"] = tracker.interpolate_ball_positions(tracks["ball"])
+    
+    # Assign Player Teams
+    team_assigner = TeamAssigner()
+    team_assigner.assign_team_color(video_frames[0], 
+                                    tracks['players'][0])
+    
+    for frame_num, player_track in enumerate(tracks['players']):
+        for player_id, track in player_track.items():
+            team = team_assigner.get_player_team(video_frames[frame_num],   
+                                                 track['bbox'],
+                                                 player_id)
+            tracks['players'][frame_num][player_id]['team'] = team 
+            tracks['players'][frame_num][player_id]['team_color'] = team_assigner.team_colors[team]
+
+    
+    # Assign Ball Aquisition
+    player_assigner =PlayerBallAssigner()
+    team_ball_control= []
+    for frame_num, player_track in enumerate(tracks['players']):
+        ball_bbox = tracks['ball'][frame_num][1]['bbox']
+        assigned_player = player_assigner.assign_ball_to_player(player_track, ball_bbox)
+
+        if assigned_player != -1:
+            tracks['players'][frame_num][assigned_player]['has_ball'] = True
+            team_ball_control.append(tracks['players'][frame_num][assigned_player]['team'])
+        else:
+            team_ball_control.append(team_ball_control[-1])
+    team_ball_control= np.array(team_ball_control)
+
+    # Draw output 
+    ## Draw object Tracks
+    output_video_frames = tracker.draw_annotations(video_frames, tracks, team_ball_control)
+
+    ## Draw Camera movement
+    output_video_frames = camera_movement_estimator.draw_camera_movement(output_video_frames,camera_movement_per_frame)
+
+
+    # Save video frames
+    save_video(output_video_frames, 'output_videos/output_video.avi')
+
+if __name__ == '__main__':
+    main()
+
+* run python3 AI-Football/main.py
+
+* update tracker.py
+
+# Section 14
+
+* create view_transformer/, __init__.py and view_transformer.py inside the folder --> check codes
+
+* create speed_and_distance_estimator/, __init__.py and speed_and_distance_estimator.py inside the folder --> check codes
+
+
+
+
+3:41:10 Implementing camera movement estimator and view transformer for football analysis AI system
+3:46:54 Understanding football field dimensions
+3:49:40 Converting camera-adjusted positions to real-world positions for tracking speed and distance easily.
+3:55:16 Implementing perspective transformation for AI/ML analysis
+3:58:11 Creating a transform Point function for perspective transformation.
+4:04:28 Calculating speed using Python for project
+4:07:40 Calculating speeds and distances of players in AI/ML Football Analysis
+4:13:42 Calculate time elapsed, speed and total distance covered in AI/ML Football Analysis
+4:16:40 Implementing speed and distance tracking for football analysis
+4:22:48 Implementing speed and distance estimation in the main program
+4:25:58 Creating AI/ML Football Analysis System with YOLO, OpenCV, Python
+
+Class Ends: 2:40:00
