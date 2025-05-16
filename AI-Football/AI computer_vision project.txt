@@ -1900,8 +1900,6 @@ if __name__ == '__main__':
 * create speed_and_distance_estimator/, __init__.py and speed_and_distance_estimator.py inside the folder --> check codes
 
 
-
-
 3:41:10 Implementing camera movement estimator and view transformer for football analysis AI system
 3:46:54 Understanding football field dimensions
 3:49:40 Converting camera-adjusted positions to real-world positions for tracking speed and distance easily.
@@ -1913,5 +1911,7 @@ if __name__ == '__main__':
 4:16:40 Implementing speed and distance tracking for football analysis
 4:22:48 Implementing speed and distance estimation in the main program
 4:25:58 Creating AI/ML Football Analysis System with YOLO, OpenCV, Python
+
+
 
 Class Ends: 2:40:00

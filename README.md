@@ -193,5 +193,14 @@ yolo solutions heatmap source="ultralytics/6381959_Milan Italy Bridge Road_By_Es
 [apple_count.py](ultralytics/apple_count.py)
 
 
-
 ## PROJECT: Build an AI/ML Football Analysis system with YOLO, OpenCV, and Python
+
+### Football AI Tutorial: From Basics to Advanced Stats with Python
+
+***Description***: The source football video will be divided into frames, and each frame will be detected using two models:  ```object detection model``` - (detecting players, balls and referees) and ```keypoint detection model```- (dectecting 32 characteristic points on football pitch). Detection on all classes will be sent to ```ByteTrack```, assigning unique Tracker ID, tracking movement on subsequent video frames.
+
+**1. Detecting Players, Ball and Referees Using Yolov11 Object Detector Trained on Custom Dataset**
+
+[Custom Dataset](https://universe.roboflow.com/roboflow-jvuqo/football-players-detection-3zvbc/dataset/14)
+
+[training notebook](futbal_AI_tutorial/train_player_detector.ipynb)
